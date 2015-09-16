@@ -164,6 +164,8 @@ def deps_list(dir):
 def manifestpath(dir):
     if os.path.isfile(os.path.join(dir, 'AndroidManifest.xml')):
         return os.path.join(dir, 'AndroidManifest.xml')
+    if os.path.isfile(os.path.join(dir, 'build', 'manifests', full', 'beta', 'debug', 'AndroidManifest.xml')):
+        return os.path.join(dir, 'build', 'manifests', full', 'beta', 'debug', 'AndroidManifest.xml')
     if os.path.isfile(os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')):
         return os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')
 
