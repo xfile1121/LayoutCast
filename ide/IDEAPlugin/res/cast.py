@@ -160,6 +160,10 @@ def deps_list(dir):
 def manifestpath(dir):
     if os.path.isfile(os.path.join(dir, 'AndroidManifest.xml')):
         return os.path.join(dir, 'AndroidManifest.xml')
+    if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')):
+        return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')
+    if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')):
+        return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')
     if os.path.isfile(os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')):
         return os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')
 
@@ -671,10 +675,10 @@ if __name__ == "__main__":
         aaptargs = [aaptpath, 'package', '-f', '--auto-add-overlay', '-F', os.path.join(bindir, 'res.zip')]
         aaptargs.append('-S')
         aaptargs.append(binresdir)
-        rdir = resdir(dir)
-        if rdir:
-            aaptargs.append('-S')
-            aaptargs.append(rdir)
+        # rdir = resdir(dir)
+        # if rdir:
+        #     aaptargs.append('-S')
+        #     aaptargs.append(rdir)
         for dep in reversed(deps):
             rdir = resdir(dep)
             if rdir:

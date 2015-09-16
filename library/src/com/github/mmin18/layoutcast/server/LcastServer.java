@@ -156,7 +156,11 @@ public class LcastServer extends EmbedHttpServer {
 			return;
 		}
 		if ("/ids.xml".equalsIgnoreCase(path)) {
-			String Rn = app.getPackageName() + ".R";
+//			String Rn = app.getPackageName() + ".R";
+			String pn = app.getPackageName();
+			pn = pn.replace(".beta.debug", "");
+			pn = pn.replace(".alpha.debug", "");
+			String Rn = pn + ".R";
 			Class<?> Rclazz = app.getClassLoader().loadClass(Rn);
 			String str = new IdProfileBuilder(context.getResources())
 					.buildIds(Rclazz);
@@ -166,7 +170,11 @@ public class LcastServer extends EmbedHttpServer {
 			return;
 		}
 		if ("/public.xml".equalsIgnoreCase(path)) {
-			String Rn = app.getPackageName() + ".R";
+//			String Rn = app.getPackageName() + ".R";
+			String pn = app.getPackageName();
+			pn = pn.replace(".beta.debug", "");
+			pn = pn.replace(".alpha.debug", "");
+			String Rn = pn + ".R";
 			Class<?> Rclazz = app.getClassLoader().loadClass(Rn);
 			String str = new IdProfileBuilder(context.getResources())
 					.buildPublic(Rclazz);

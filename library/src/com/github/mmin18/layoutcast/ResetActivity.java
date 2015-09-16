@@ -24,7 +24,7 @@ public class ResetActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		TextView tv = new TextView(this);
 		tv.setGravity(Gravity.CENTER);
-		tv.setText("Cast DEX in 2 second..");
+		tv.setText("Cast DEX in 10 second..");
 		setContentView(tv);
 		createTime = SystemClock.uptimeMillis();
 

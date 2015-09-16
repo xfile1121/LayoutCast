@@ -55,32 +55,32 @@ android {
 }
 
 // gradle bintrayUpload
-ext {
-    bintrayRepo = 'mvn'
-    bintrayName = 'layoutcast'
+//ext {
+//    bintrayRepo = 'mvn'
+//    bintrayName = 'layoutcast'
+//
+//    publishedGroupId = 'com.github.mmin18.layoutcast'
+//    libraryName = 'LayoutCast'
+//    artifact = 'library'
+//
+//    libraryDescription = 'Android develop tool to help cast layout changes to the running application through ADB.'
+//
+//    siteUrl = 'https://github.com/mmin18/LayoutCast'
+//    gitUrl = 'https://github.com/mmin18/LayoutCast.git'
+//
+//    libraryVersion = '1.1.4'
+//
+//    developerId = 'mmin18'
+//    developerName = 'mmin18'
+//    developerEmail = 'mmin18@gmail.com'
+//
+//    licenseName = 'MIT'
+//    licenseUrl = 'http://opensource.org/licenses/MIT'
+//    allLicenses = ["MIT"]
+//}
 
-    publishedGroupId = 'com.github.mmin18.layoutcast'
-    libraryName = 'LayoutCast'
-    artifact = 'library'
-
-    libraryDescription = 'Android develop tool to help cast layout changes to the running application through ADB.'
-
-    siteUrl = 'https://github.com/mmin18/LayoutCast'
-    gitUrl = 'https://github.com/mmin18/LayoutCast.git'
-
-    libraryVersion = '1.1.4'
-
-    developerId = 'mmin18'
-    developerName = 'mmin18'
-    developerEmail = 'mmin18@gmail.com'
-
-    licenseName = 'MIT'
-    licenseUrl = 'http://opensource.org/licenses/MIT'
-    allLicenses = ["MIT"]
-}
-
-apply from: 'https://raw.githubusercontent.com/nuuneoi/JCenter/master/installv1.gradle'
-apply from: 'https://raw.githubusercontent.com/nuuneoi/JCenter/master/bintrayv1.gradle'
+//apply from: 'https://raw.githubusercontent.com/nuuneoi/JCenter/master/installv1.gradle'
+//apply from: 'https://raw.githubusercontent.com/nuuneoi/JCenter/master/bintrayv1.gradle'
 
 
 // gradle clean build generateRelease
@@ -90,4 +90,4 @@ ext {
     PUBLISH_VERSION = '1.1.4'
 }
 
-apply from: 'https://raw.githubusercontent.com/blundell/release-android-library/master/android-release-aar.gradle'
+//apply from: 'https://raw.githubusercontent.com/blundell/release-android-library/master/android-release-aar.gradle'

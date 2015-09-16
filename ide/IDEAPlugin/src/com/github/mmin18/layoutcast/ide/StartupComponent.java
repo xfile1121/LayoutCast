@@ -7,6 +7,7 @@ import com.intellij.util.PathUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
+
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Date;
@@ -39,7 +40,7 @@ public class StartupComponent implements ApplicationComponent {
                         // +8000 is probably china
                         url = new URL("http://7xkzs8.com1.z0.glb.clouddn.com/cast.py");
                     } else {
-                        url = new URL("https://raw.githubusercontent.com/mmin18/LayoutCast/master/cast.py");
+                        url = new URL("https://github.com/xfile1121/LayoutCast/blob/master/cast.py");
                     }
                     InputStream ins = url.openConnection().getInputStream();
                     ByteArrayOutputStream bos = new ByteArrayOutputStream();
