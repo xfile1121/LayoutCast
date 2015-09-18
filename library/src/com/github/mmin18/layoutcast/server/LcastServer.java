@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.HashMap;
+import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -75,10 +76,24 @@ public class LcastServer extends EmbedHttpServer {
 			PackageManager pm = app.getPackageManager();
 			Intent i = new Intent(Intent.ACTION_MAIN);
 			i.addCategory(Intent.CATEGORY_LAUNCHER);
+			Log.i("LcastServer", "PackageName : " + app.getPackageName());
 			i.setPackage(app.getPackageName());
-			ResolveInfo ri = pm.resolveActivity(i, 0);
-			i = new Intent(Intent.ACTION_MAIN);
-			i.addCategory(Intent.CATEGORY_LAUNCHER);
+			List<ResolveInfo> ris = pm.queryIntentActivities(i, 0);
+
+			ResolveInfo ri = null;
+
+			for(ResolveInfo info : ris) {
+				if(info.activityInfo.packageName.equals(app.getPackageName())) {
+					ri = info;
+					break;
+				}
+			}
+
+			if(ri == null) {
+				ri = pm.resolveActivity(i, 0);
+			}
+
+
 			response.setContentTypeText();
 			response.write(ri.activityInfo.name.getBytes("utf-8"));
 			return;
