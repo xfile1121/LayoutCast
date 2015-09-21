@@ -1,8 +1,16 @@
 package com.github.mmin18.layoutcast.ide;
 
+import com.intellij.execution.filters.TextConsoleBuilderFactory;
+import com.intellij.execution.ui.ConsoleView;
+import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.ide.plugins.PluginManager;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataKeys;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.extensions.PluginId;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.wm.ToolWindowAnchor;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.util.PathUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -26,6 +34,8 @@ public class StartupComponent implements ApplicationComponent {
     private static double UPDATE_VER;
     private static File STROKE_FILE;
     private static double STROKE_VER;
+
+    private static ConsoleView consoleView;
 
     public StartupComponent() {
     }
@@ -146,5 +156,16 @@ public class StartupComponent implements ApplicationComponent {
             }
             return UPDATE_FILE;
         }
+    }
+
+    public static void printLog(Project project, String log) {
+        if(consoleView == null) {
+            consoleView = TextConsoleBuilderFactory.getInstance().createBuilder(project)
+                    .getConsole();
+
+            ToolWindowManager manager = ToolWindowManager.getInstance(project);
+            manager.registerToolWindow("LayoutCast Error Log", consoleView.getComponent(), ToolWindowAnchor.BOTTOM);
+        }
+        consoleView.print(log, ConsoleViewContentType.ERROR_OUTPUT);
     }
 }

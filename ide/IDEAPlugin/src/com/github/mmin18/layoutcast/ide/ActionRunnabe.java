@@ -1,5 +1,8 @@
 package com.github.mmin18.layoutcast.ide;
 
+import com.intellij.execution.filters.TextConsoleBuilderFactory;
+import com.intellij.execution.ui.ConsoleView;
+import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.ide.plugins.PluginManager;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataKeys;
@@ -9,6 +12,8 @@ import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.popup.Balloon;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.wm.StatusBar;
+import com.intellij.openapi.wm.ToolWindowAnchor;
+import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.ui.awt.RelativePoint;
 
@@ -31,6 +36,7 @@ public class ActionRunnabe implements Runnable {
     private File dir;
     private File castPy;
     private AnActionEvent event;
+    private ConsoleView consoleView;
 
     public ActionRunnabe(File dir, File castPy, AnActionEvent e) {
         this.dir = dir;
@@ -106,43 +112,49 @@ public class ActionRunnabe implements Runnable {
     }
 
     private void popupBollon(final int exit, final String output) {
-        ApplicationManager.getApplication().invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                String msg = output;
-                if (exit != 0 && output.length() > 1512) {
-                    try {
-                        File tmp = File.createTempFile("lcast_log", ".txt");
-                        FileOutputStream fos = new FileOutputStream(tmp);
-                        fos.write(output.getBytes());
-                        fos.close();
 
-                        msg = output.substring(0, 1500) + "...";
-                        msg += "\n<a href=\"file://" + tmp.getAbsolutePath() + "\">see log</a>";
-                    } catch (Exception e) {
-                    }
-                }
 
-                StatusBar statusBar = WindowManager.getInstance()
-                        .getStatusBar(DataKeys.PROJECT.getData(event.getDataContext()));
-                JBPopupFactory.getInstance()
-                        .createHtmlTextBalloonBuilder(msg, exit == 0 ? MessageType.INFO : MessageType.ERROR, new HyperlinkListener() {
-                            @Override
-                            public void hyperlinkUpdate(HyperlinkEvent e) {
-                                if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
-                                    try {
-                                        java.awt.Desktop.getDesktop().browse(e.getURL().toURI());
-                                    } catch (Exception ex) {
-                                    }
-                                }
+                ApplicationManager.getApplication().invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        String msg = output;
+                        if (exit != 0 && output.length() > 1512) {
+                            try {
+                                File tmp = File.createTempFile("lcast_log", ".txt");
+                                FileOutputStream fos = new FileOutputStream(tmp);
+                                fos.write(output.getBytes());
+                                fos.close();
+
+                                msg = output.substring(0, 1500) + "...";
+                                msg += "\n<a href=\"file://" + tmp.getAbsolutePath() + "\">see log</a>";
+                            } catch (Exception e) {
                             }
-                        })
-                        .setFadeoutTime(exit == 0 ? 1500 : 6000)
-                        .createBalloon()
-                        .show(RelativePoint.getCenterOf(statusBar.getComponent()),
-                                Balloon.Position.atRight);
-            }
-        });
+                        }
+
+                        StatusBar statusBar = WindowManager.getInstance()
+                                .getStatusBar(DataKeys.PROJECT.getData(event.getDataContext()));
+                        JBPopupFactory.getInstance()
+                                .createHtmlTextBalloonBuilder(msg, exit == 0 ? MessageType.INFO : MessageType.ERROR, new HyperlinkListener() {
+                                    @Override
+                                    public void hyperlinkUpdate(HyperlinkEvent e) {
+                                        if (e.getEventType() == HyperlinkEvent.EventType.ACTIVATED) {
+                                            try {
+                                                java.awt.Desktop.getDesktop().browse(e.getURL().toURI());
+                                            } catch (Exception ex) {
+                                            }
+                                        }
+                                    }
+                                })
+                                .setFadeoutTime(exit == 0 ? 1500 : 6000)
+                                .createBalloon()
+                                .show(RelativePoint.getCenterOf(statusBar.getComponent()),
+                                        Balloon.Position.atRight);
+
+                        if(exit != 0) {
+                            StartupComponent.printLog(DataKeys.PROJECT.getData(event.getDataContext()), output);
+                        }
+                    }
+                });
     }
 
     private static File getAndroidSdk() {
