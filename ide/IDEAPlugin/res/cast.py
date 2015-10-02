@@ -14,6 +14,7 @@ import re
 import time
 import shutil
 import json
+import zipfile
 
 # http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
 def is_exe(fpath):
@@ -38,9 +39,9 @@ def cexec_fail_exit(args, code, stdout, stderr):
         print('Fail to exec %s'%args)
         print(stdout)
         print(stderr)
-        exit(1)
+        exit(code)
 
-def cexec(args, callback = cexec_fail_exit, addPath = None):
+def cexec(args, callback = cexec_fail_exit, addPath = None, exitcode=1):
     env = None
     if addPath:
         import copy
@@ -48,11 +49,14 @@ def cexec(args, callback = cexec_fail_exit, addPath = None):
         env['PATH'] = addPath + os.path.pathsep + env['PATH']
     p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE, env=env)
     output, err = p.communicate()
+    code = p.returncode
+    if code and exitcode:
+        code = exitcode
     if callback:
-        callback(args, p.returncode, output, err)
+       callback(args, code, output, err)
     return output
 
-def curl(url, body=None, ignoreError=False):
+def curl(url, body=None, ignoreError=False, exitcode=1):
     import sys
     try:
         if sys.version_info >= (3, 0):
@@ -66,7 +70,7 @@ def curl(url, body=None, ignoreError=False):
             return None
         else:
             print(e)
-            exit(-1)
+            exit(exitcode)
 
 def open_as_text(path):
     if not path or not os.path.isfile(path):
@@ -173,27 +177,45 @@ def package_name(dir):
     for pn in re.findall('package=\"([\w\d_\.]+)\"', data):
         return pn
 
+def get_apk_path(dir):
+    apkpath = os.path.join(dir,'build','outputs','apk')
+    #Get the lastmodified *.apk file
+    maxt = 0
+    maxd = None
+    for dirpath, dirnames, files in os.walk(apkpath):
+        for fn in files:
+            if fn.endswith('.apk') and not fn.endswith('-unaligned.apk') and not fn.endswith('-unsigned.apk'):
+                lastModified = os.path.getmtime(os.path.join(dirpath, fn))
+                if lastModified > maxt:
+                    maxt = lastModified
+                    maxd = os.path.join(dirpath, fn)
+    return maxd
+
 def package_name_fromapk(dir, sdkdir):
     #Get the package name from maxd
     aaptpath = get_aapt(sdkdir)
     if aaptpath:
-        apkpath = os.path.join(dir,'build','outputs','apk')
-        #Get the lastmodified *.apk file
-        maxt = 0
-        maxd = None
-        for dirpath, dirnames, files in os.walk(apkpath):
-            for fn in files:
-                if fn.endswith('.apk') and not fn.endswith('-unaligned.apk') and not fn.endswith('-unsigned.apk'):
-                    lastModified = os.path.getmtime(os.path.join(dirpath, fn))
-                    if lastModified > maxt:
-                        maxt = lastModified
-                        maxd = os.path.join(dirpath, fn)
-        if maxd:
-            aaptargs = [aaptpath, 'dump','badging', maxd]
+        apkpath = get_apk_path(dir)
+        if apkpath:
+            aaptargs = [aaptpath, 'dump','badging', apkpath]
             output = cexec(aaptargs, callback=None)
             for pn in re.findall('package: name=\'([^\']+)\'', output):
                 return pn
     return package_name(dir)
+
+def get_latest_packagename(dirlist,sdkdir):
+    maxt = 0
+    maxd = None
+    for dir in dirlist:
+        if dir:
+            apkfile= get_apk_path(dir)
+            if apkfile:
+                lastModified = os.path.getmtime(apkfile)
+                if lastModified > maxt:
+                    maxt = lastModified
+                    maxd = dir
+    if maxd:
+        return package_name_fromapk(maxd,sdkdir)
 
 def isResName(name):
     if name=='drawable' or name.startswith('drawable-'):
@@ -232,6 +254,14 @@ def countResDir(dir):
         return 0
     return c
 
+def countAssetDir(dir):
+    a = 0
+    if os.path.isdir(dir):
+        for subd in os.listdir(dir):
+            if not subd.startswith('.'):
+                a+=1
+    return a
+
 def resdir(dir):
     dir1 = os.path.join(dir, 'res')
     dir2 = os.path.join(dir, 'src', 'main', 'res')
@@ -243,6 +273,25 @@ def resdir(dir):
         return dir2
     else:
         return dir1
+
+def assetdir(dir):
+    dir1 = os.path.join(dir, 'assets')
+    dir2 = os.path.join(dir, 'src', 'main', 'assets')
+    a = countAssetDir(dir1)
+    b = countAssetDir(dir2)
+    if b==0 and a==0:
+        return None
+    elif b>a:
+        return dir2
+    else:
+        return dir1
+
+def get_asset_from_apk(apk_filename, dest_dir):
+    with zipfile.ZipFile(apk_filename) as zf:
+        for member in zf.infolist():
+            path = dest_dir
+            if member.filename.startswith('assets/'):
+                zf.extract(member,path)
 
 def countSrcDir2(dir, lastBuild=0, list=None):
     count = 0
@@ -326,9 +375,14 @@ def list_aar_projects(dir, deps):
             for fn in files:
                 if fn=='merger.xml':
                     data = open_as_text(os.path.join(dirpath, fn))
-                    for ppath in re.findall(r'''path="([^"]*?[/\\+]res)"''', data):
-                        if not ppath in list1:
-                            list1.append(ppath)
+                    for s in re.findall(r'''path="([^"]+)"''', data):
+                        (parent, child) = os.path.split(s)
+                        if child.endswith('.xml') or child.endswith('.png') or child.endswith('.jpg') or parent.endswith('raw'):
+                            (parent, child) = os.path.split(parent)
+                            if isResName(child) and not parent in list1:
+                                list1.append(parent)
+                        elif os.path.isdir(s) and not s in list1 and countResDir(s) > 0:
+                            list1.append(s)
     list2 = []
     for ppath in list1:
         parpath = os.path.abspath(os.path.join(ppath, os.pardir))
@@ -528,6 +582,26 @@ def get_maven_jars(libs):
                 break
     return jars
 
+def scan_port(adbpath, pnlist, projlist):
+    port = 0
+    prodir = None
+    packagename = None
+    for i in range(0,10):
+        cexec([adbpath, 'forward', 'tcp:%d'%(41128+i), 'tcp:%d'%(41128+i)])
+        output = curl('http://127.0.0.1:%d/packagename'%(41128+i), ignoreError=True)
+        if output and output in pnlist :
+            index = pnlist.index(output) # index of this app in projlist
+            state = curl('http://127.0.0.1:%d/appstate'%(41128+i), ignoreError=True)
+            if state and int(state) >= 2:
+                port = 41128+i
+                prodir = projlist[index]
+                packagename = output
+                break
+    for i in range(0, 10):
+        if (41128+i) != port:
+            cexec([adbpath, 'forward', '--remove', 'tcp:%d'%(41128+i)], callback=None)
+    return port, prodir, packagename
+
 if __name__ == "__main__":
 
     dir = '.'
@@ -555,54 +629,42 @@ if __name__ == "__main__":
         sdkdir = get_android_sdk(dir)
         if not sdkdir:
             print('android sdk not found, specify in local.properties or export ANDROID_HOME')
-            exit(1)
+            exit(2)
 
     if not projlist:
         print('no valid android project found in '+os.path.abspath(dir))
-        exit(1)
+        exit(3)
 
     pnlist = [package_name_fromapk(i,sdkdir) for i in projlist]
     portlist = [0 for i in pnlist]
-    stlist = [-1 for i in pnlist]
-   
     adbpath = get_adb(sdkdir)
     if not adbpath:
         print('adb not found in %s/platform-tools'%sdkdir)
-        exit(1)
-    for i in range(0, 10):
-        cexec([adbpath, 'forward', 'tcp:%d'%(41128+i), 'tcp:%d'%(41128+i)])
-        output = curl('http://127.0.0.1:%d/packagename'%(41128+i), ignoreError=True)
-        if output and output in pnlist:
-            ii=pnlist.index(output)
-            output = curl('http://127.0.0.1:%d/appstate'%(41128+i), ignoreError=True)
-            if output and int(output) > stlist[ii]:
-                portlist[ii] = (41128+i)
-                stlist[ii] = int(output)
+        exit(4)
+    port, dir, packagename = scan_port(adbpath, pnlist, projlist)
 
-    maxst = max(stlist)
-    port=0
-    if maxst == -1:
+    if port == 0:
+        #launch app
+        latest_package = get_latest_packagename(projlist, sdkdir)
+        if latest_package:
+            cexec([adbpath,'shell','monkey','-p',latest_package,'-c','android.intent.category.LAUNCHER','1'], callback=None)
+            for i in range(0, 6):
+                # try 6 times to wait the application launches
+                port, dir, packagename = scan_port(adbpath, pnlist, projlist)
+                if port:
+                    break
+                time.sleep(0.25)
+
+    if port == 0:
         print('package %s not found, make sure your project is properly setup and running'%(len(pnlist)==1 and pnlist[0] or pnlist))
-    elif stlist.count(maxst) > 1:
-        alist = [pnlist[i] for i in range(0, len(pnlist)) if stlist[i] >= 0]
-        print('multiple packages %s running%s'%(alist, (maxst==2 and '.' or ', keep one of your application visible and cast again')))
-    else:
-        i = stlist.index(maxst)
-        port = portlist[i]
-        dir = projlist[i]
-        packagename = pnlist[i]
-    for i in range(0, 10):
-        if (41128+i) != port:
-            cexec([adbpath, 'forward', '--remove', 'tcp:%d'%(41128+i)], callback=None)
-    if port==0:
-        exit(1)
+        exit(5)
 
     is_gradle = is_gradle_project(dir)
 
     android_jar = get_android_jar(sdkdir)
     if not android_jar:
         print('android.jar not found !!!\nUse local.properties or set ANDROID_HOME env')
-
+        exit(7)
     deps = deps_list(dir)
     bindir = is_gradle and os.path.join(dir, 'build', 'lcast') or os.path.join(dir, 'bin', 'lcast')
 
@@ -621,7 +683,22 @@ if __name__ == "__main__":
     latestSrcModified = 0
     srcs = []
     msrclist = []
+    assetdirs = []
     for dep in adeps:
+        adir = assetdir(dep)
+        if adir:
+            latestModified = os.path.getmtime(adir)
+            for dirpath, dirnames, files in os.walk(adir):
+                for dirname in dirnames:
+                    if not dirname.startswith('.'):
+                        latestModified = max(latestModified, os.path.getmtime(os.path.join(dirpath, dirname)))
+                for fn in files:
+                    if not fn.startswith('.'):
+                        fpath = os.path.join(dirpath, fn)
+                        latestModified = max(latestModified, os.path.getmtime(fpath))
+            latestResModified = max(latestResModified, latestModified)
+            if latestModified > lastBuild:
+                assetdirs.append(adir)
         rdir = resdir(dep)
         if rdir:
             for subd in os.listdir(rdir):
@@ -661,17 +738,24 @@ if __name__ == "__main__":
         if not os.path.exists(os.path.join(binresdir, 'values')):
             os.makedirs(os.path.join(binresdir, 'values'))
 
-        data = curl('http://127.0.0.1:%d/ids.xml'%port)
+        data = curl('http://127.0.0.1:%d/ids.xml'%port,exitcode=8)
         with open(os.path.join(binresdir, 'values/ids.xml'), 'w') as fp:
             fp.write(data)
-        data = curl('http://127.0.0.1:%d/public.xml'%port)
+        data = curl('http://127.0.0.1:%d/public.xml'%port,exitcode=9)
         with open(os.path.join(binresdir, 'values/public.xml'), 'w') as fp:
             fp.write(data)
 
+        #Get the assets path
+        apk_path = get_apk_path(dir)
+        if apk_path:
+            assets_path = os.path.join(bindir,"assets")
+            if os.path.isdir(assets_path):
+                shutil.rmtree(assets_path)
+            get_asset_from_apk(apk_path, bindir)
         aaptpath = get_aapt(sdkdir)
         if not aaptpath:
             print('aapt not found in %s/build-tools'%sdkdir)
-            exit(1)
+            exit(10)
         aaptargs = [aaptpath, 'package', '-f', '--auto-add-overlay', '-F', os.path.join(bindir, 'res.zip')]
         aaptargs.append('-S')
         aaptargs.append(binresdir)
@@ -688,15 +772,21 @@ if __name__ == "__main__":
             for dep in reversed(list_aar_projects(dir, deps)):
                 aaptargs.append('-S')
                 aaptargs.append(dep)
+        for assetdir in assetdirs:
+            aaptargs.append('-A')
+            aaptargs.append(assetdir)
+        if os.path.isdir(assets_path):
+            aaptargs.append('-A')
+            aaptargs.append(assets_path)
         aaptargs.append('-M')
         aaptargs.append(manifestpath(dir))
         aaptargs.append('-I')
         aaptargs.append(android_jar)
-        cexec(aaptargs)
+        cexec(aaptargs,exitcode=18)
 
         with open(os.path.join(bindir, 'res.zip'), 'rb') as fp:
-            curl('http://127.0.0.1:%d/pushres'%port, body=fp.read())
-
+            curl('http://127.0.0.1:%d/pushres'%port, body=fp.read(),exitcode=11)
+        
     if srcModified:
         vmversion = curl('http://127.0.0.1:%d/vmversion'%port, ignoreError=True)
         if vmversion==None:
@@ -707,9 +797,9 @@ if __name__ == "__main__":
             javac = get_javac(jdkdir)
             if not javac:
                 print('javac is required to compile java code, config your PATH to include javac')
-                exit(-1)
+                exit(12)
 
-            launcher = curl('http://127.0.0.1:%d/launcher'%port)
+            launcher = curl('http://127.0.0.1:%d/launcher'%port,exitcode = 13)
 
             classpath = [android_jar]
             for dep in adeps:
@@ -776,16 +866,17 @@ if __name__ == "__main__":
             javacargs.extend(msrclist)
             # remove all cache if javac fail
             def remove_cache_and_exit(args, code, stdout, stderr):
-                maven_libs_cache_file = os.path.join(bindir, 'cache-javac-maven.json')
-                if os.path.isfile(maven_libs_cache_file):
-                    os.remove(maven_libs_cache_file)
+                if code:
+                    maven_libs_cache_file = os.path.join(bindir, 'cache-javac-maven.json')
+                    if os.path.isfile(maven_libs_cache_file):
+                        os.remove(maven_libs_cache_file)
                 cexec_fail_exit(args, code, stdout, stderr)
-            cexec(javacargs, callback=remove_cache_and_exit)
+            cexec(javacargs, callback=remove_cache_and_exit,exitcode=19)
 
             dxpath = get_dx(sdkdir)
             if not dxpath:
                 print('dx not found in %s/build-tools'%sdkdir)
-                exit(1)
+                exit(14)
             dxoutput = os.path.join(bindir, 'classes.dex')
             if os.path.isfile(dxoutput):
                 os.remove(dxoutput)
@@ -793,10 +884,10 @@ if __name__ == "__main__":
             if os.name == 'nt':
                 # fix system32 java.exe issue
                 addPath = os.path.abspath(os.path.join(javac, os.pardir))
-            cexec([dxpath, '--dex', '--output=%s'%dxoutput, binclassesdir], addPath = addPath)
+            cexec([dxpath, '--dex', '--output=%s'%dxoutput, binclassesdir], addPath = addPath,exitcode=20)
 
             with open(dxoutput, 'rb') as fp:
-                curl('http://127.0.0.1:%d/pushdex'%port, body=fp.read())
+                curl('http://127.0.0.1:%d/pushdex'%port, body=fp.read(),exitcode=15)
 
         else:
             if is_gradle:
@@ -804,7 +895,7 @@ if __name__ == "__main__":
             else:
                 print('libs/lcast.jar is out of date, please update')
 
-    curl('http://127.0.0.1:%d/lcast'%port)
+    curl('http://127.0.0.1:%d/lcast'%port, ignoreError=True)
 
     cexec([adbpath, 'forward', '--remove', 'tcp:%d'%port], callback=None)
 
