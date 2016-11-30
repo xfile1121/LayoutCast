@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataKeys;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.extensions.PluginId;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.ui.MessageType;
 import com.intellij.openapi.ui.popup.Balloon;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -36,12 +37,15 @@ public class ActionRunnabe implements Runnable {
     private File dir;
     private File castPy;
     private AnActionEvent event;
+    private String flavor, buildType;
     private ConsoleView consoleView;
 
-    public ActionRunnabe(File dir, File castPy, AnActionEvent e) {
+    public ActionRunnabe(File dir, File castPy, String flavor, String buildType, AnActionEvent e) {
         this.dir = dir;
         this.castPy = castPy;
         this.event = e;
+        this.flavor = flavor;
+        this.buildType = buildType;
     }
 
     @Override
@@ -79,6 +83,17 @@ public class ActionRunnabe implements Runnable {
                 args.add("--sdk");
                 args.add(androidSdk.getAbsolutePath());
             }
+
+            if(flavor != null) {
+                args.add("--flavor");
+                args.add(flavor);
+            }
+
+            if(buildType != null) {
+                args.add("--buildType");
+                args.add(buildType);
+            }
+
             args.add(dir.getAbsolutePath());
             Process p = Runtime.getRuntime().exec(args.toArray(new String[0]), null, dir);
             running = p;

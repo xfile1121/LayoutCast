@@ -35,7 +35,9 @@ public class ArtUtils {
 				Object element = Array.get(dexElements, i);
 				Array.set(newDexElements, i + 1, element);
 			}
+
 			fDexElements.set(pathList, newDexElements);
+			Log.i("lcast", "Loader Count : " + newDexElements.toString());
 			return true;
 		} catch (Exception e) {
 			Log.e("lcast", "fail to override classloader " + cl + " with " + dex, e);

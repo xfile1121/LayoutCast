@@ -162,12 +162,24 @@ def deps_list(dir):
         return list
 
 def manifestpath(dir):
+    if flavor and buildtype:
+        if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', flavor, buildtype, 'AndroidManifest.xml')):
+            return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', flavor, buildtype, 'AndroidManifest.xml')
+
+    if flavor:
+        if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', flavor, 'AndroidManifest.xml')):
+            return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', flavor, 'AndroidManifest.xml')
+
+    if buildtype:
+        if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', buildtype, 'AndroidManifest.xml')):
+            return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', buildtype, 'AndroidManifest.xml')
+
     if os.path.isfile(os.path.join(dir, 'AndroidManifest.xml')):
         return os.path.join(dir, 'AndroidManifest.xml')
-    if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')):
-        return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')
-    if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')):
-        return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')
+    #if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')):
+    #    return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'beta', 'debug', 'AndroidManifest.xml')
+    #if os.path.isfile(os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')):
+    #   return os.path.join(dir, 'build', 'intermediates', 'manifests', 'full', 'alpha', 'debug', 'AndroidManifest.xml')
     if os.path.isfile(os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')):
         return os.path.join(dir, 'src', 'main', 'AndroidManifest.xml')
 
@@ -353,6 +365,9 @@ def __append_project(list, dir, depth):
 def list_projects(dir):
     list = []
     if os.path.isfile(os.path.join(dir, 'settings.gradle')):
+
+        __append_project(list, dir, 2)
+
         data = open_as_text(os.path.join(dir, 'settings.gradle'))
         for line in re.findall(r'''include\s*(.+)''', data):
             for proj in re.findall(r'''[\s,]+['"](.*?)['"]''', ','+line):
@@ -368,12 +383,23 @@ def list_aar_projects(dir, deps):
     pnlist = [package_name(i) for i in deps]
     pnlist.append(package_name(dir))
     list1 = []
-    if os.path.isdir(os.path.join(dir, 'build', 'intermediates', 'incremental', 'mergeResources')):
-        for dirpath, dirnames, files in os.walk(os.path.join(dir, 'build', 'intermediates', 'incremental', 'mergeResources')):
+    mrdir = 'merge'
+    if flavor:
+        mrdir = mrdir + flavor.capitalize()
+    if buildtype:
+        mrdir = mrdir + buildtype.capitalize()
+
+    mrdir = mrdir + 'Resources'
+
+    print mrdir
+
+    if os.path.isdir(os.path.join(dir, 'build', 'intermediates', 'incremental', mrdir)):
+        for dirpath, dirnames, files in os.walk(os.path.join(dir, 'build', 'intermediates', 'incremental', mrdir)):
             if re.findall(r'[/\\+]androidTest[/\\+]', dirpath):
                 continue
             for fn in files:
                 if fn=='merger.xml':
+                    print 'merger.xml'
                     data = open_as_text(os.path.join(dirpath, fn))
                     for s in re.findall(r'''path="([^"]+)"''', data):
                         (parent, child) = os.path.split(s)
@@ -409,6 +435,32 @@ def get_android_jar(path):
                 if a > api:
                     api = a
                     result = os.path.join(pd, 'android.jar')
+    return result
+
+
+def get_android_optional_jar(path):
+    if not os.path.isdir(path):
+        return None
+    platforms = os.path.join(path, 'platforms')
+    if not os.path.isdir(platforms):
+        return None
+    api = 0
+    result = []
+    for pd in os.listdir(platforms):
+        pd = os.path.join(platforms, pd)
+        if os.path.isdir(pd) and os.path.isfile(os.path.join(pd, 'source.properties')) and os.path.isfile(os.path.join(pd, 'android.jar')):
+            s = open_as_text(os.path.join(pd, 'source.properties'))
+            m = re.search(r'^AndroidVersion.ApiLevel\s*[=:]\s*(.*)$', s, re.MULTILINE)
+            if m:
+                a = int(m.group(1))
+                if a > api:
+                    api = a
+                    optional = os.path.join(pd, 'optional')
+                    result = []
+                    if os.path.isdir(optional):
+                        for j in os.listdir(optional):
+                            if ".jar" in j:
+                                result.append(os.path.join(optional, j))
     return result
 
 def get_adb(path):
@@ -535,8 +587,23 @@ def search_path(dir, filename):
     else:
         return os.path.join(dir, 'debug')
 
+def get_support_lib_version(dir):
+    slv = None
+    str = open_as_text(os.path.join(dir, 'gradle.properties'))
+    str = remove_comments(str)
+
+    for line in str.splitlines():
+        if 'ANDROID_SUPPORT_LIB_VERSION' in line:
+            ver = line.split('=')
+            slv = ver[1]
+
+    return slv
+
+
 def get_maven_libs(projs):
     maven_deps = []
+    slv = get_support_lib_version(dir)
+    print slv
     for proj in projs:
         str = open_as_text(os.path.join(proj, 'build.gradle'))
         str = remove_comments(str)
@@ -544,8 +611,13 @@ def get_maven_libs(projs):
             depends = balanced_braces(str[m.start():])
             for mvndep in re.findall(r'''compile\s+['"](.+:.+:.+)(?:@*)?['"]''', depends):
                 mvndeps = mvndep.split(':')
+                if len(mvndeps) > 2 and slv:
+                    if 'ANDROID_SUPPORT_LIB_VERSION' in mvndeps[2]:
+                        mvndeps[2] = slv
+
                 if not mvndeps in maven_deps:
                     maven_deps.append(mvndeps)
+
     return maven_deps
 
 def get_maven_jars(libs):
@@ -582,6 +654,42 @@ def get_maven_jars(libs):
                 break
     return jars
 
+
+def get_sdk_maven_jars(libs):
+    if not libs:
+        return []
+    jars = []
+    maven_path_prefix = []
+    # ~/.gralde/caches
+    gradle_home = os.path.join(sdkdir, 'extras', 'android', "m2repository")
+    for dirpath, dirnames, files in os.walk(gradle_home):
+        # search in ~/.gradle/**/GROUP_ID/ARTIFACT_ID/VERSION/**/*.jar
+        for mvndeps in libs:
+            if mvndeps[1] in dirnames:
+                dir1 = os.path.join(dirpath, mvndeps[1])
+                if os.path.isdir(dir1):
+                    dir2 = os.path.join(dir1, mvndeps[2])
+                    if os.path.isdir(dir2):
+                        maven_path_prefix.append(dir2)
+                    else:
+                        prefix = mvndeps[2]
+                        if '+' in prefix:
+                            prefix = prefix[0:prefix.index('+')]
+                        maxdir = ''
+                        for subd in os.listdir(dir1):
+                            if subd.startswith(prefix) and subd>maxdir:
+                                maxdir = subd
+                        if maxdir:
+                            maven_path_prefix.append(os.path.join(dir1, maxdir))
+        for dirprefix in maven_path_prefix:
+            if dirpath.startswith(dirprefix):
+                for fn in files:
+                    if fn.endswith('.jar') and not fn.startswith('.') and not fn.endswith('-sources.jar') and not fn.endswith('-javadoc.jar'):
+                        jars.append(os.path.join(dirpath, fn))
+                break
+    return jars
+
+
 def scan_port(adbpath, pnlist, projlist):
     port = 0
     prodir = None
@@ -607,6 +715,8 @@ if __name__ == "__main__":
     dir = '.'
     sdkdir = None
     jdkdir = None
+    flavor = None
+    buildtype = None;
 
     starttime = time.time()
 
@@ -614,6 +724,8 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
         parser.add_argument('--sdk', help='specify Android SDK path')
         parser.add_argument('--jdk', help='specify JDK path')
+        parser.add_argument('--flavor')
+        parser.add_argument('--buildType')
         parser.add_argument('project')
         args = parser.parse_args()
         if args.sdk:
@@ -622,6 +734,10 @@ if __name__ == "__main__":
             jdkdir = args.jdk
         if args.project:
             dir = args.project
+        if args.flavor:
+            flavor = args.flavor
+        if args.buildType:
+            buildtype = args.buildType
 
     projlist = [i for i in list_projects(dir) if is_launchable_project(i)]
 
@@ -711,7 +827,12 @@ if __name__ == "__main__":
         if sdir:
             srcs.append(sdir)
             latestSrcModified = max(latestSrcModified, smt)
-    resModified = latestResModified > lastBuild
+
+    resfile = os.path.join(dir, 'build', 'lcast', 'res.zip')
+    resbuildtime = 0
+    if os.path.isfile(resfile):
+        resbuildtime = os.path.getmtime(resfile)
+    resModified = latestResModified > lastBuild and latestResModified > resbuildtime
     srcModified = latestSrcModified > lastBuild
     targets = ''
     if resModified and srcModified:
@@ -759,10 +880,10 @@ if __name__ == "__main__":
         aaptargs = [aaptpath, 'package', '-f', '--auto-add-overlay', '-F', os.path.join(bindir, 'res.zip')]
         aaptargs.append('-S')
         aaptargs.append(binresdir)
-        # rdir = resdir(dir)
-        # if rdir:
-        #     aaptargs.append('-S')
-        #     aaptargs.append(rdir)
+        rdir = resdir(dir)
+        if rdir:
+            aaptargs.append('-S')
+            aaptargs.append(rdir)
         for dep in reversed(deps):
             rdir = resdir(dep)
             if rdir:
@@ -772,6 +893,28 @@ if __name__ == "__main__":
             for dep in reversed(list_aar_projects(dir, deps)):
                 aaptargs.append('-S')
                 aaptargs.append(dep)
+
+        if flavor:
+            aaptargs.append('-S')
+            aaptargs.append(os.path.join(dir, 'src', flavor, 'res'))
+
+        if buildtype:
+            aaptargs.append('-S')
+            aaptargs.append(os.path.join(dir, 'src', buildtype, 'res'))
+
+        if flavor and buildtype:
+            aaptargs.append('-S')
+            aaptargs.append(os.path.join(dir, 'build', 'generated', 'res', 'resValues', flavor, buildtype))
+        elif flavor:
+            aaptargs.append('-S')
+            aaptargs.append(os.path.join(dir, 'build', 'generated', 'res', 'resValues', flavor))
+        elif buildtype:
+            aaptargs.append('-S')
+            aaptargs.append(os.path.join(dir, 'build', 'generated', 'res', 'resValues', buildtype))
+
+        #if ".debug" in packagename:
+        #    aaptargs.append('-S')
+        #    aaptargs.append(os.path.join(dir, 'src', 'debug', 'res'))
         for assetdir in assetdirs:
             aaptargs.append('-A')
             aaptargs.append(assetdir)
@@ -802,6 +945,7 @@ if __name__ == "__main__":
             launcher = curl('http://127.0.0.1:%d/launcher'%port,exitcode = 13)
 
             classpath = [android_jar]
+            classpath.extend(get_android_optional_jar(sdkdir))
             for dep in adeps:
                 dlib = libdir(dep)
                 if dlib:
@@ -824,10 +968,13 @@ if __name__ == "__main__":
                         os.remove(maven_libs_cache_file)
                     maven_libs_cache = {}
                 maven_jars = []
+                sdk_jars = []
                 if maven_libs_cache:
                     maven_jars = maven_libs_cache.get('jars')
                 elif maven_libs:
                     maven_jars = get_maven_jars(maven_libs)
+                    sdk_jars = get_sdk_maven_jars(maven_libs)
+                    maven_jars = maven_jars + sdk_jars;
                     cache = {'version':1, 'from':maven_libs, 'jars':maven_jars}
                     try:
                         with open(maven_libs_cache_file, 'w') as fp:

@@ -1,17 +1,22 @@
 package com.github.mmin18.layoutcast.ide;
 
+import com.android.builder.model.AndroidProject;
+import com.android.tools.idea.gradle.facet.AndroidGradleFacet;
 import com.intellij.execution.filters.TextConsoleBuilderFactory;
 import com.intellij.execution.ui.ConsoleView;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.ide.plugins.PluginManager;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataKeys;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.wm.ToolWindowAnchor;
 import com.intellij.openapi.wm.ToolWindowManager;
 import com.intellij.util.PathUtil;
+import org.jetbrains.android.facet.AndroidFacet;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
@@ -37,10 +42,12 @@ public class StartupComponent implements ApplicationComponent {
 
     private static ConsoleView consoleView;
 
+
     public StartupComponent() {
     }
 
     public void initComponent() {
+
         new Thread() {
             @Override
             public void run() {
@@ -79,6 +86,8 @@ public class StartupComponent implements ApplicationComponent {
                 }
             }
         }.start();
+
+//        AndroidFacet.getInstance()
     }
 
     public void disposeComponent() {

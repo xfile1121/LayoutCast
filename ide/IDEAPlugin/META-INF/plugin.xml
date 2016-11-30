@@ -13,6 +13,9 @@
     ]]>
   </change-notes>
   <!--<depends>org.jetbrains.android</depends>-->
+  <depends>org.jetbrains.android</depends>
+  <depends>org.jetbrains.plugins.gradle</depends>
+  <depends>com.intellij.properties</depends>
 
   <!-- please see https://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
   <idea-version since-build="131"/>
@@ -44,6 +47,7 @@
             text="Layout Cast" description="" icon="/lcast.png">
       <add-to-group group-id="ToolsMenu" anchor="first"/>
       <add-to-group group-id="ToolbarRunGroup" anchor="after" relative-to-action="RunnerActions"/>
+      <keyboard-shortcut first-keystroke="alt R" keymap="$default"/>
     </action>
   </actions>
 

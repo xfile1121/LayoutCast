@@ -30,13 +30,18 @@ public class LayoutCast {
 				: (Application) context.getApplicationContext();
 		appContext = app;
 
-		LcastServer.cleanCache(app);
+//		LcastServer.cleanCache(app);
 		File dir = new File(app.getCacheDir(), "lcast");
 		File dex = new File(dir, "dex.ped");
 		File res = new File(dir, "res.ped");
 
+		boolean sourceChanged = false;
+
 		if (dex.length() > 0) {
 			File f = new File(dir, "dex.apk");
+			if(f.exists()) {
+				f.delete();
+			}
 			dex.renameTo(f);
 			File opt = new File(dir, "opt");
 			opt.mkdirs();
@@ -46,7 +51,22 @@ public class LayoutCast {
 			} else {
 				Log.e("lcast", "cannot cast dex to daivik, only support ART now.");
 			}
+
+			sourceChanged = true;
 		}
+//		else {
+//			File f = new File(dir, "dex.apk");
+//			if(f.exists()) {
+//				File opt = new File(dir, "opt");
+//				opt.mkdirs();
+//				final String vmVersion = System.getProperty("java.vm.version");
+//				if (vmVersion != null && vmVersion.startsWith("2")) {
+//					ArtUtils.overrideClassLoader(app.getClassLoader(), f, opt);
+//				} else {
+//					Log.e("lcast", "cannot cast dex to daivik, only support ART now.");
+//				}
+//			}
+//		}
 
 		OverrideContext.initApplication(app);
 		BootInflater.initApplication(app);
@@ -54,11 +74,26 @@ public class LayoutCast {
 		if (res.length() > 0) {
 			try {
 				File f = new File(dir, "res.apk");
+				if(f.exists()) {
+					f.delete();
+				}
 				res.renameTo(f);
 				Resources r = ResUtils.getResources(app, f);
 				OverrideContext.setGlobalResources(r);
 			} catch (Exception e) {
 				Log.e("lcast", "fail to cast " + res, e);
+			}
+		}
+		else {
+			try {
+				File f = new File(dir, "res.apk");
+				if(sourceChanged && f.exists()) {
+					Resources r = ResUtils.getResources(app, f);
+					OverrideContext.setGlobalResources(r);
+				}
+			}
+			catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 
